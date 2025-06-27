@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { addFlashcardSet, getAllFlashcardSets, FlashcardSet } from '@/utils/db';
+import StudySession from './StudySession'; // Import the new component
 
 
 // Define the structure of a single flashcard
@@ -28,6 +29,7 @@ export default function CardGenerator() {
   const [topic, setTopic] = useState('');
   const [sets, setSets] = useState<FlashcardSet[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [studyingSet, setStudyingSet] = useState<FlashcardSet | null>(null);
 
   // Load existing sets from IndexedDB when the component mounts
   useEffect(() => {
@@ -44,41 +46,37 @@ export default function CardGenerator() {
       return;
     }
     setIsLoading(true);
-    // setCards([]); // Clear previous cards
     const generatedCards = await mockAIGeneration(topic);
-    // setCards(generatedCards);
     await addFlashcardSet(topic, generatedCards);
-
     const updatedSets = await getAllFlashcardSets();
     setSets(updatedSets);
-
     setIsLoading(false);
     setTopic('');
   };
+
+  // If a set is being studied, show the StudySession component
+  if (studyingSet) {
+    return <StudySession set={studyingSet} onEndSession={() => setStudyingSet(null)} />;
+  }
 
   return (
     <>
       <div className="p-8 bg-gray-800/50 rounded-lg max-w-3xl mx-auto">
         <div className="flex flex-col sm:flex-row gap-4">
           <input
-            type="text"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
+            type="text" value={topic} onChange={(e) => setTopic(e.target.value)}
             placeholder="Enter a topic (e.g., 'Japan')"
             className="flex-grow bg-gray-700 text-white placeholder-gray-400 rounded-md px-4 py-2 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            disabled={isLoading}
-          />
+            disabled={isLoading} />
           <button
             onClick={handleGenerateClick}
             className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-md transition-colors duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed"
-            disabled={isLoading}
-          >
+            disabled={isLoading} >
             {isLoading ? 'Generating...' : 'Generate Cards'}
           </button>
         </div>
       </div>
 
-      {/* Display List of Generated Sets */}
       <div className="mt-12 max-w-3xl mx-auto">
         <h3 className="text-2xl font-bold text-white mb-4">Your Flashcard Sets</h3>
         <div className="space-y-4">
@@ -89,7 +87,9 @@ export default function CardGenerator() {
                   <p className="font-semibold text-white text-lg">{set.topic}</p>
                   <p className="text-gray-400 text-sm">{set.cards.length} cards - Created on {new Date(set.createdAt).toLocaleDateString()}</p>
                 </div>
-                <button className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
+                <button 
+                  onClick={() => setStudyingSet(set)} // Set the set to study on click
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
                   Study
                 </button>
               </div>
