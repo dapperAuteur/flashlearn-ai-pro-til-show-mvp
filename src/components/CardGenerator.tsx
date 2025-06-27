@@ -1,37 +1,42 @@
-'use client'; // This directive marks this as a client-side component
+'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { addFlashcardSet, getAllFlashcardSets, FlashcardSet } from '@/utils/db';
-import StudySession from './StudySession'; // Import the new component
-
-
-// Define the structure of a single flashcard
-type Flashcard = {
-  sideA: string;
-  sideB: string;
-};
-
-// This is a temporary placeholder for our on-device AI model
-const mockAIGeneration = async (topic: string): Promise<Flashcard['cards']> => {
-  console.log(`Generating cards for topic: ${topic}`);
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  // Return mock data
-  return [
-    { sideA: `What is the capital of ${topic}?`, sideB: 'Capital City' },
-    { sideA: `What is the main currency of ${topic}?`, sideB: 'Currency' },
-    { sideA: `What is a famous landmark in ${topic}?`, sideB: 'Famous Landmark' },
-  ];
-};
-
+import StudySession from './StudySession';
 
 export default function CardGenerator() {
   const [topic, setTopic] = useState('');
   const [sets, setSets] = useState<FlashcardSet[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState('');
   const [studyingSet, setStudyingSet] = useState<FlashcardSet | null>(null);
 
-  // Load existing sets from IndexedDB when the component mounts
+  const workerRef = useRef<Worker | null>(null);
+
+  useEffect(() => {
+    // Initialize the worker
+    workerRef.current = new Worker(new URL('./../../public/worker.js', import.meta.url));
+
+    // Handle messages from the worker
+    workerRef.current.onmessage = async (event) => {
+      const { status, output } = event.data;
+      if (status === 'complete') {
+        await addFlashcardSet(topic, output); // Save the new set
+        const updatedSets = await getAllFlashcardSets();
+        setSets(updatedSets);
+        setIsLoading(false);
+        setTopic('');
+        setLoadingStatus('');
+      }
+    };
+    
+    // Cleanup worker on component unmount
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, [topic]); // Re-create worker if topic changes to pass it into the message handler
+
+
   useEffect(() => {
     const loadSets = async () => {
       const savedSets = await getAllFlashcardSets();
@@ -40,21 +45,17 @@ export default function CardGenerator() {
     loadSets();
   }, []);
 
-  const handleGenerateClick = async () => {
+  const handleGenerateClick = () => {
     if (!topic) {
       alert('Please enter a topic.');
       return;
     }
+    console.log('topic :>> ', topic);
     setIsLoading(true);
-    const generatedCards = await mockAIGeneration(topic);
-    await addFlashcardSet(topic, generatedCards);
-    const updatedSets = await getAllFlashcardSets();
-    setSets(updatedSets);
-    setIsLoading(false);
-    setTopic('');
+    setLoadingStatus('Initializing AI model...');
+    workerRef.current?.postMessage({ topic });
   };
 
-  // If a set is being studied, show the StudySession component
   if (studyingSet) {
     return <StudySession set={studyingSet} onEndSession={() => setStudyingSet(null)} />;
   }
@@ -65,7 +66,7 @@ export default function CardGenerator() {
         <div className="flex flex-col sm:flex-row gap-4">
           <input
             type="text" value={topic} onChange={(e) => setTopic(e.target.value)}
-            placeholder="Enter a topic (e.g., 'Japan')"
+            placeholder="Enter a topic (e.g., 'Photosynthesis')"
             className="flex-grow bg-gray-700 text-white placeholder-gray-400 rounded-md px-4 py-2 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
             disabled={isLoading} />
           <button
@@ -75,6 +76,7 @@ export default function CardGenerator() {
             {isLoading ? 'Generating...' : 'Generate Cards'}
           </button>
         </div>
+        {isLoading && <p className="text-center text-cyan-300 mt-4 animate-pulse">{loadingStatus}</p>}
       </div>
 
       <div className="mt-12 max-w-3xl mx-auto">
@@ -88,7 +90,7 @@ export default function CardGenerator() {
                   <p className="text-gray-400 text-sm">{set.cards.length} cards - Created on {new Date(set.createdAt).toLocaleDateString()}</p>
                 </div>
                 <button 
-                  onClick={() => setStudyingSet(set)} // Set the set to study on click
+                  onClick={() => setStudyingSet(set)}
                   className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
                   Study
                 </button>
