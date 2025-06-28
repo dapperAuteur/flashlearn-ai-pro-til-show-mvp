@@ -2,11 +2,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { addFlashcardSet, getAllFlashcardSets, FlashcardSet } from '@/utils/db';
 import StudySession from './StudySession';
 import Leaderboard from './Leaderboard';
 import UsernameSetter from './UsernameSetter';
 import ReviewAlert from './ReviewAlert';
+import { IFlashcardSet as FlashcardSet } from '@/models/FlashcardSet';
 
 type View = 'generator' | 'leaderboard';
 
@@ -25,9 +25,20 @@ export default function CardGenerator() {
   const [studyingSet, setStudyingSet] = useState<FlashcardSet | null>(null);
   const [view, setView] = useState<View>('generator');
 
-  // We need a function to refresh the sets list after a study session
-  const refreshSets = () => {
-    getAllFlashcardSets().then(setSets);
+  const refreshSets = async () => {
+    try {
+      const response = await fetch('/api/flashcard-sets');
+      if (response.ok) {
+        const data = await response.json();
+        setSets(data.sets);
+      } else {
+        // If not logged in, the API returns an error, so we'll have an empty list
+        setSets([]);
+      }
+    } catch (e) {
+      console.error("Failed to fetch sets", e);
+      setSets([]);
+    }
   };
   
   // State for API calls
@@ -40,10 +51,6 @@ export default function CardGenerator() {
 
    useEffect(() => {
     refreshSets();
-  }, []);
-
-  useEffect(() => {
-    getAllFlashcardSets().then(setSets);
   }, []);
 
   const handleShare = async (set: FlashcardSet) => {
@@ -70,33 +77,33 @@ export default function CardGenerator() {
   };
 
   const handleGenerateClick = async () => {
-    if (!topic || !isPaidUser) return;
+    if (!topic) return;
     
     setIsLoading(true);
     setError(null);
     
     try {
-      const response = await fetch('/api/generate', {
+      // 1. Generate cards from Gemini API (no change here)
+      const genResponse = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic }),
       });
+      if (!genResponse.ok) throw new Error('Failed to generate cards from AI.');
+      const genData = await genResponse.json();
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Server responded with ${response.status}`);
-      }
-      
-      const data = await response.json();
-      const generatedCards = data.cards;
+      // 2. Save the new set to our database via our new endpoint
+      const saveResponse = await fetch('/api/flashcard-sets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, cards: genData.cards }),
+      });
+      if (!saveResponse.ok) throw new Error('Failed to save the new set. Are you logged in?');
 
-      if (generatedCards && generatedCards.length > 0) {
-        await addFlashcardSet(topic, generatedCards);
-        const updatedSets = await getAllFlashcardSets();
-        setSets(updatedSets);
-      }
+      // 3. Refresh the list of sets from the server
+      await refreshSets();
+
     } catch (e: any) {
-      console.error("Failed to generate flashcards", e);
       setError(e.message);
     } finally {
       setIsLoading(false);
@@ -151,23 +158,26 @@ export default function CardGenerator() {
           <div className="mt-12 max-w-3xl mx-auto">
             <h3 className="text-2xl font-bold text-white mb-4">Your Flashcard Sets</h3>
             <div className="space-y-4">
-              {sets.map((set) => (
-                <div key={set.id} className="bg-gray-800 p-4 rounded-md shadow-md flex justify-between items-center">
-                  <div>
-                    <p className="font-semibold text-white text-lg">{set.topic}</p>
-                    <p className="text-gray-400 text-sm">{set.cards.length} cards</p>
+              {sets.length > 0 ? (
+                 sets.map((set) => (
+                  <div key={set._id} className="bg-gray-800 p-4 rounded-md shadow-md flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold text-white text-lg">{set.topic}</p>
+                      <p className="text-gray-400 text-sm">{set.cards.length} cards</p>
+                    </div>
+                    <div className="flex gap-2">
+                       <button onClick={() => handleShare(set)} title="Share this set" className="bg-gray-600 hover:bg-gray-700 text-white font-bold p-2 rounded-md">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                       </button>
+                      <button onClick={() => setStudyingSet(set as any)} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md">
+                        Study
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    {/* Share Button Added Here */}
-                    <button onClick={() => handleShare(set)} title="Share this set" className="bg-gray-600 hover:bg-gray-700 text-white font-bold p-2 rounded-md">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                    </button>
-                    <button onClick={() => setStudyingSet(set)} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md">
-                      Study
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-gray-400">Log in to see your saved flashcard sets.</p>
+              )}
             </div>
           </div>
         </>
