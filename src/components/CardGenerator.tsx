@@ -8,6 +8,7 @@ import { addFlashcardSet, getAllFlashcardSets, FlashcardSet } from '@/utils/db';
 import StudySession from './StudySession';
 import Leaderboard from './Leaderboard';
 import UsernameSetter from './UsernameSetter';
+import ReviewAlert from './ReviewAlert';
 
 type View = 'generator' | 'leaderboard';
 
@@ -17,6 +18,11 @@ export default function CardGenerator() {
   const [sets, setSets] = useState<FlashcardSet[]>([]);
   const [studyingSet, setStudyingSet] = useState<FlashcardSet | null>(null);
   const [view, setView] = useState<View>('generator');
+
+  // We need a function to refresh the sets list after a study session
+  const refreshSets = () => {
+    getAllFlashcardSets().then(setSets);
+  };
   
   // State for API calls
   const [isLoading, setIsLoading] = useState(false);
@@ -25,6 +31,10 @@ export default function CardGenerator() {
   // --- MOCK FOR MVP ---
   // In a real app, this would come from your user authentication system.
   const [isPaidUser, setIsPaidUser] = useState(true); 
+
+   useEffect(() => {
+    refreshSets();
+  }, []);
 
   useEffect(() => {
     getAllFlashcardSets().then(setSets);
@@ -66,7 +76,11 @@ export default function CardGenerator() {
   };
   
   if (studyingSet) {
-    return <StudySession set={studyingSet} onEndSession={() => setStudyingSet(null)} />;
+   // When a session ends, refresh the main sets list
+    return <StudySession set={studyingSet} onEndSession={() => {
+      setStudyingSet(null);
+      refreshSets();
+    }} />;
   }
 
   return (
@@ -95,10 +109,9 @@ export default function CardGenerator() {
             </div>
             {error && <p className="text-red-500 text-center mt-4">{error}</p>}
           </div>
-
+          <ReviewAlert onStartReview={setStudyingSet} />
           <div className="mt-12 max-w-3xl mx-auto">
             <h3 className="text-2xl font-bold text-white mb-4">Your Flashcard Sets</h3>
-            {/* The rest of the JSX to display sets remains the same */}
             <div className="space-y-4">
               {sets.map((set) => (
                 <div key={set.id} className="bg-gray-800 p-4 rounded-md shadow-md flex justify-between items-center">

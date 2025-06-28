@@ -30,9 +30,11 @@ interface TILShowDB extends DBSchema {
   };
 }
 
-interface Flashcard {
+export interface Flashcard {
   sideA: string;
   sideB: string;
+  srsLevel?: number; // How many times reviewed correctly in a row
+  nextReview?: Date; // When to review this card next
 }
 
 export interface FlashcardSet {
@@ -40,14 +42,6 @@ export interface FlashcardSet {
   topic: string;
   createdAt: Date;
   cards: Flashcard[];
-}
-
-interface TILShowDB extends DBSchema {
-  [SETS_STORE_NAME]: {
-    key: number;
-    value: FlashcardSet;
-    indexes: { 'createdAt': Date };
-  };
 }
 
 const dbPromise = openDB<TILShowDB>(DB_NAME, DB_VERSION, {
@@ -68,6 +62,11 @@ const dbPromise = openDB<TILShowDB>(DB_NAME, DB_VERSION, {
     }
   },
 });
+
+export const updateFlashcardSet = async (set: FlashcardSet): Promise<void> => {
+  const db = await dbPromise;
+  await db.put(SETS_STORE_NAME, set);
+};
 
 export const addFlashcardSet = async (topic: string, cards: Flashcard[]): Promise<void> => {
   const db = await dbPromise;

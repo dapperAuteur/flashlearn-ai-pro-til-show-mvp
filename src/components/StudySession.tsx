@@ -1,34 +1,44 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useEffect, useState } from 'react';
-import { FlashcardSet } from '@/utils/db';
-import { addLeaderboardScore } from '@/utils/db';
-import { getUsername } from '@/components/UsernameSetter';
-
-
-// Helper function to encode data for the URL
-const encodeDataForURL = (data: any): string => {
-  const jsonString = JSON.stringify(data);
-  return btoa(jsonString); // btoa is a browser function for Base64 encoding
-};
+import { useState, useEffect } from 'react';
+import { FlashcardSet, updateFlashcardSet, addLeaderboardScore } from '@/utils/db';
+import { calculateNextReview } from '@/utils/srs';
+import { getUsername } from './UsernameSetter';
 
 interface StudySessionProps {
   set: FlashcardSet;
   onEndSession: () => void;
 }
 
-export default function StudySession({ set, onEndSession }: StudySessionProps) {
+export default function StudySession({ set: initialSet, onEndSession }: StudySessionProps) {
+  const [set, setSet] = useState(initialSet);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRevealed, setIsRevealed] = useState(false);
   const [score, setScore] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [startTime] = useState(Date.now());
 
-  
+  const currentCard = set.cards[currentIndex];
 
-  const handleAnswer = (isCorrect: boolean) => {
-    if (isCorrect) setScore(prev => prev + 1);
+  const handleAnswer = async (wasCorrect: boolean) => {
+    if (wasCorrect) {
+      setScore(prev => prev + 1);
+    }
+    
+    // Calculate and update the card's next review date
+    const updatedCard = calculateNextReview(currentCard, wasCorrect);
+    
+    // Create a new set with the updated card
+    const updatedCards = [...set.cards];
+    updatedCards[currentIndex] = updatedCard;
+    const updatedSet = { ...set, cards: updatedCards };
+    
+    // Save the entire updated set to the database
+    await updateFlashcardSet(updatedSet);
+    setSet(updatedSet); // Update the local state
+
+    // Move to the next card or finish the session
     if (currentIndex === set.cards.length - 1) {
       setIsComplete(true);
     } else {
@@ -38,19 +48,13 @@ export default function StudySession({ set, onEndSession }: StudySessionProps) {
   };
   
   const completionTime = Math.round((Date.now() - startTime) / 1000);
-  // Encode the entire card set into the URL
-  const shareableLink = `${window.location.origin}/challenge?data=${encodeDataForURL(set.cards)}&score=${score}&time=${completionTime}&topic=${encodeURIComponent(set.topic)}`;
+  const shareableLink = `${window.location.origin}/challenge?data=${btoa(JSON.stringify(set.cards))}&score=${score}&time=${completionTime}&topic=${encodeURIComponent(set.topic)}`;
 
   useEffect(() => {
     if (isComplete) {
       const username = getUsername();
       if (username) {
-        addLeaderboardScore({
-          username,
-          topic: set.topic,
-          score,
-          time: completionTime,
-        });
+        addLeaderboardScore({ username, topic: set.topic, score, time: completionTime });
       }
     }
   }, [isComplete, set.topic, score, completionTime]);
