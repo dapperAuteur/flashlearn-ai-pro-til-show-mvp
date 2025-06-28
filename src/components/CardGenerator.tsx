@@ -1,74 +1,77 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client"
+
+'use client';
+
 import { useState, useEffect } from 'react';
 import { addFlashcardSet, getAllFlashcardSets, FlashcardSet } from '@/utils/db';
 import StudySession from './StudySession';
-import { useGemma } from '@/hooks/useGemma';
-import Leaderboard from './Leaderboard'; // Import Leaderboard
-import UsernameSetter from './UsernameSetter'; // Import UsernameSetter
+import Leaderboard from './Leaderboard';
+import UsernameSetter from './UsernameSetter';
 
 type View = 'generator' | 'leaderboard';
 
 export default function CardGenerator() {
+  // --- STATE MANAGEMENT ---
   const [topic, setTopic] = useState('');
   const [sets, setSets] = useState<FlashcardSet[]>([]);
   const [studyingSet, setStudyingSet] = useState<FlashcardSet | null>(null);
-  const [view, setView] = useState<View>('generator'); // State to control the view
+  const [view, setView] = useState<View>('generator');
   
-  const { generateResponse, isLoading, error } = useGemma();
+  // State for API calls
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // --- MOCK FOR MVP ---
+  // In a real app, this would come from your user authentication system.
+  const [isPaidUser, setIsPaidUser] = useState(true); 
 
   useEffect(() => {
     getAllFlashcardSets().then(setSets);
   }, []);
 
   const handleGenerateClick = async () => {
-    if (!topic) return;
+    if (!topic || !isPaidUser) return;
     
-    const prompt = `Generate a numbered list of 5 unique flashcards for the topic "${topic}". Format each flashcard on a new line with the question and answer separated by a pipe symbol '|'.
-    Example:
-    1. What is the capital of France? | Paris
-    2. Who painted the Mona Lisa? | Leonardo da Vinci`;
-
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      const resultText = await generateResponse(prompt);
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      });
 
-      // Parse the structured text from Gemma
-      const flashcards = resultText
-        .split('\n')
-        .map((line: string) => {
-          const cleanLine = line.replace(/^\d+\.\s*/, '');
-          const parts = cleanLine.split('|');
-          if (parts.length === 2) {
-            return { sideA: parts[0].trim(), sideB: parts[1].trim() };
-          }
-          return null;
-        })
-        .filter((card): card is { sideA: string; sideB: string } => card !== null);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server responded with ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const generatedCards = data.cards;
 
-      if (flashcards.length > 0) {
-        await addFlashcardSet(topic, flashcards);
+      if (generatedCards && generatedCards.length > 0) {
+        await addFlashcardSet(topic, generatedCards);
         const updatedSets = await getAllFlashcardSets();
         setSets(updatedSets);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to generate flashcards", e);
+      setError(e.message);
     } finally {
+      setIsLoading(false);
       setTopic('');
     }
   };
-  
-  // The rest of your component's JSX remains the same...
-  // ... (You can copy the JSX from the previous version)
-  // Just make sure the button's disabled state uses `isLoading` from the hook
-  // and you can display the `error` state to the user if it's not null.
   
   if (studyingSet) {
     return <StudySession set={studyingSet} onEndSession={() => setStudyingSet(null)} />;
   }
 
-  // Replace your existing return block with this one:
   return (
     <>
-      <UsernameSetter /> {/* This will only show if username is not set */}
-
+      <UsernameSetter />
       <div className="text-center mb-8">
         <div className="inline-flex bg-gray-800 p-1 rounded-lg">
           <button onClick={() => setView('generator')} className={`px-6 py-2 rounded-md ${view === 'generator' ? 'bg-cyan-500 text-white' : 'text-gray-300'}`}>Generator</button>
@@ -79,10 +82,15 @@ export default function CardGenerator() {
       {view === 'generator' && (
         <>
           <div className="p-8 bg-gray-800/50 rounded-lg max-w-3xl mx-auto">
+            {!isPaidUser && (
+              <div className="text-center bg-yellow-900/50 border border-yellow-700 text-yellow-300 p-4 rounded-lg mb-4">
+                AI Card Generation is a premium feature. Upgrade to create custom sets.
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-4">
-              <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a topic..." className="flex-grow bg-gray-700 text-white rounded-md px-4 py-2 border border-gray-600" disabled={isLoading} />
-              <button onClick={handleGenerateClick} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-md" disabled={isLoading}>
-                {isLoading ? 'AI is Thinking...' : 'Generate Cards'}
+              <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a topic..." className="flex-grow bg-gray-700 text-white rounded-md px-4 py-2 border border-gray-600" disabled={isLoading || !isPaidUser} />
+              <button onClick={handleGenerateClick} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={isLoading || !isPaidUser}>
+                {isLoading ? 'Gemini is Thinking...' : 'Generate Cards'}
               </button>
             </div>
             {error && <p className="text-red-500 text-center mt-4">{error}</p>}
@@ -90,6 +98,7 @@ export default function CardGenerator() {
 
           <div className="mt-12 max-w-3xl mx-auto">
             <h3 className="text-2xl font-bold text-white mb-4">Your Flashcard Sets</h3>
+            {/* The rest of the JSX to display sets remains the same */}
             <div className="space-y-4">
               {sets.map((set) => (
                 <div key={set.id} className="bg-gray-800 p-4 rounded-md shadow-md flex justify-between items-center">
