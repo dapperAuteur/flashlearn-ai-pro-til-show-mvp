@@ -19,10 +19,9 @@ export async function POST(request: Request) {
     }
 
     // Use the same reliable prompt strategy
-    const prompt = `Generate a numbered list of 5 unique flashcards for the topic "${topic}". Format each flashcard on a new line with the question and answer separated by a pipe symbol '|'.
-    Example:
-    1. What is the capital of France? | Paris
-    2. Who painted the Mona Lisa? | Leonardo da Vinci`;
+    const prompt = `Generate a list of flashcards for the topic of "${topic}". Each flashcard should have a term and a concise definition. Format the output as a list of "Front: Back" pairs, with each pair on a new line. Ensure terms are set to front and definitions are set to back. Front (Terms) and Back (Definitions) are distinct and clearly separated by a single colon. Here's an example output:
+      Hello: Hola
+      Goodbye: Adiós`;
 
     const result = await model.generateContent(prompt);
     const response = result.response;
