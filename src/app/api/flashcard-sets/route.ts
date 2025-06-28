@@ -49,3 +49,68 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Error creating set', error: error.message }, { status: 500 });
   }
 }
+
+// PUT: Update an existing flashcard set
+export async function PUT(request: NextRequest) {
+  await dbConnect();
+  try {
+    const { userId } = verifyAuth(request);
+    const { setId, topic, cards } = await request.json();
+
+    if (!setId || !topic || !cards) {
+      return NextResponse.json({ message: 'Set ID, topic, and cards are required.' }, { status: 400 });
+    }
+
+    const set = await FlashcardSet.findById(setId);
+
+    if (!set) {
+      return NextResponse.json({ message: 'Set not found.' }, { status: 404 });
+    }
+
+    // Security Check: Ensure the logged-in user is the owner of the set
+    if (set.owner.toString() !== userId) {
+      return NextResponse.json({ message: 'Unauthorized.' }, { status: 403 });
+    }
+
+    set.topic = topic;
+    set.cards = cards;
+    await set.save();
+
+    return NextResponse.json({ message: 'Set updated successfully', set }, { status: 200 });
+  } catch (error: any) {
+    console.log('UPDATE Flashcard error :>> ', error);
+    // ... error handling
+  }
+}
+
+// --- NEW ---
+// DELETE: Delete a flashcard set
+export async function DELETE(request: NextRequest) {
+  await dbConnect();
+  try {
+    const { userId } = verifyAuth(request);
+    const { setId } = await request.json();
+
+    if (!setId) {
+      return NextResponse.json({ message: 'Set ID is required.' }, { status: 400 });
+    }
+
+    const set = await FlashcardSet.findById(setId);
+
+    if (!set) {
+      return NextResponse.json({ message: 'Set not found.' }, { status: 404 });
+    }
+
+    // Security Check: Ensure the logged-in user is the owner of the set
+    if (set.owner.toString() !== userId) {
+      return NextResponse.json({ message: 'Unauthorized.' }, { status: 403 });
+    }
+
+    await FlashcardSet.findByIdAndDelete(setId);
+
+    return NextResponse.json({ message: 'Set deleted successfully.' }, { status: 200 });
+  } catch (error: any) {
+    console.log('DELETE Flashcard error :>> ', error);
+    // ... error handling
+  }
+}

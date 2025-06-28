@@ -5,6 +5,7 @@ import Link from "next/link";
 import { cookies } from 'next/headers'; // Import cookies from next/headers
 import jwt from 'jsonwebtoken';
 import AuthStatus from "@/components/AuthStatus"; // Import our new component
+import OnlineStatusIndicator from "@/components/OnlineStatusIndicator";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -39,6 +40,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} bg-gray-900 text-gray-100`}>
+        <OnlineStatusIndicator />
         <div className="flex flex-col min-h-screen">
           {/* Header */}
           <header className="bg-gray-800/50 backdrop-blur-sm shadow-md sticky top-0 z-10">

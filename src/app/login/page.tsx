@@ -4,6 +4,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { getAllFlashcardSets, clearLocalSets } from '@/utils/db';
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +13,36 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const syncLocalDataToServer = async () => {
+    // Check if a sync has already been performed
+    if (localStorage.getItem('hasSyncedLocalData')) {
+      return;
+    }
+    
+    // 1. Get all sets from IndexedDB
+    const localSets = await getAllFlashcardSets();
+
+    if (localSets && localSets.length > 0) {
+      console.log(`Found ${localSets.length} local sets to sync.`);
+      
+      // 2. Upload each set to the server
+      for (const set of localSets) {
+        await fetch('/api/flashcard-sets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic: set.topic, cards: set.cards }),
+        });
+      }
+
+      // 3. Clear the local database to prevent re-uploading
+      await clearLocalSets();
+      
+      // 4. Set a flag in localStorage so this process doesn't run again
+      localStorage.setItem('hasSyncedLocalData', 'true');
+      console.log('Local data sync complete.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -29,6 +61,8 @@ export default function LoginPage() {
         throw new Error(data.message || 'Failed to log in');
       }
 
+      await syncLocalDataToServer();
+      
       // On successful login, redirect to the main page
       router.push('/');
       router.refresh(); // Refresh to update server-side state if needed

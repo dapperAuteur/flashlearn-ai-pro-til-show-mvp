@@ -2,7 +2,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FlashcardSet, updateFlashcardSet, addLeaderboardScore } from '@/utils/db';
+import { Flashcard, FlashcardSet } from '@/types';
+import { addLeaderboardScore } from '@/utils/db';
 import { calculateNextReview } from '@/utils/srs';
 import { getUsername } from './UsernameSetter';
 
@@ -32,11 +33,22 @@ export default function StudySession({ set: initialSet, onEndSession }: StudySes
     // Create a new set with the updated card
     const updatedCards = [...set.cards];
     updatedCards[currentIndex] = updatedCard;
-    const updatedSet = { ...set, cards: updatedCards };
+    const updatedSetData = { ...set, cards: updatedCards };
     
-    // Save the entire updated set to the database
-    await updateFlashcardSet(updatedSet);
-    setSet(updatedSet); // Update the local state
+    try {
+      await fetch('/api/flashcard-sets', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          setId: updatedSetData._id, 
+          topic: updatedSetData.topic,
+          cards: updatedSetData.cards,
+        }),
+      });
+      setSet(updatedSetData); // Update local state
+    } catch (error) {
+      console.error("Failed to update set:", error);
+    }
 
     // Move to the next card or finish the session
     if (currentIndex === set.cards.length - 1) {

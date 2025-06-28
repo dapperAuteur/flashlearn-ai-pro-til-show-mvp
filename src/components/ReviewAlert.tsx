@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAllFlashcardSets, Flashcard, FlashcardSet } from '@/utils/db';
+import { getAllFlashcardSets, Flashcard } from '@/utils/db';
+import { FlashcardSet } from '@/types';
+
+// Review Alert } from '@/types';
 
 interface ReviewAlertProps {
   onStartReview: (reviewSet: FlashcardSet) => void;
@@ -38,10 +41,13 @@ export default function ReviewAlert({ onStartReview }: ReviewAlertProps) {
   const handleStartReviewClick = () => {
     // Create a temporary "super set" containing all cards due for review
     const reviewSet: FlashcardSet = {
-      id: Date.now(), // Use a temporary unique ID
+      _id: `Date.now()`, // Use a temporary unique ID
       topic: 'Review Session',
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
       cards: dueCards,
+      updatedAt: new Date().toISOString(),
+      isPublic: false,
+      owner: 'null',
     };
     onStartReview(reviewSet);
   };

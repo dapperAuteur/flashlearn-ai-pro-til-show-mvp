@@ -6,7 +6,7 @@ import StudySession from './StudySession';
 import Leaderboard from './Leaderboard';
 import UsernameSetter from './UsernameSetter';
 import ReviewAlert from './ReviewAlert';
-import { IFlashcardSet as FlashcardSet } from '@/models/FlashcardSet';
+import { FlashcardSet } from '@/types';
 
 type View = 'generator' | 'leaderboard';
 
@@ -47,6 +47,7 @@ export default function CardGenerator() {
 
   // --- MOCK FOR MVP ---
   // In a real app, this would come from your user authentication system.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isPaidUser, setIsPaidUser] = useState(true); 
 
    useEffect(() => {
@@ -154,13 +155,13 @@ export default function CardGenerator() {
             </div>
             {error && <p className="text-red-500 text-center mt-4">{error}</p>}
           </div>
-          <ReviewAlert onStartReview={setStudyingSet} />
+          <ReviewAlert onStartReview={(reviewSet) => setStudyingSet(reviewSet)} />
           <div className="mt-12 max-w-3xl mx-auto">
             <h3 className="text-2xl font-bold text-white mb-4">Your Flashcard Sets</h3>
             <div className="space-y-4">
               {sets.length > 0 ? (
-                 sets.map((set) => (
-                  <div key={set._id} className="bg-gray-800 p-4 rounded-md shadow-md flex justify-between items-center">
+                 sets.map((set: FlashcardSet) => (
+                  <div key={String(set._id)} className="bg-gray-800 p-4 rounded-md shadow-md flex justify-between items-center">
                     <div>
                       <p className="font-semibold text-white text-lg">{set.topic}</p>
                       <p className="text-gray-400 text-sm">{set.cards.length} cards</p>
@@ -169,7 +170,7 @@ export default function CardGenerator() {
                        <button onClick={() => handleShare(set)} title="Share this set" className="bg-gray-600 hover:bg-gray-700 text-white font-bold p-2 rounded-md">
                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                        </button>
-                      <button onClick={() => setStudyingSet(set as any)} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md">
+                      <button onClick={() => setStudyingSet(set)} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md">
                         Study
                       </button>
                     </div>

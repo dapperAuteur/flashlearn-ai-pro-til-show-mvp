@@ -101,3 +101,9 @@ export const getLeaderboardScores = async (): Promise<LeaderboardScore[]> => {
   const db = await dbPromise;
   return db.getAll(LEADERBOARD_STORE_NAME);
 };
+
+export const clearLocalSets = async (): Promise<void> => {
+  const db = await dbPromise;
+  await db.clear(SETS_STORE_NAME);
+  console.log('Local flashcard sets cleared.');
+};
