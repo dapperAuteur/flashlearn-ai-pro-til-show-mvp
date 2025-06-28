@@ -2,8 +2,33 @@
 import { openDB, DBSchema } from 'idb';
 
 const DB_NAME = 'TILShowDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const SETS_STORE_NAME = 'flashcardSets';
+
+const LEADERBOARD_STORE_NAME = 'leaderboardScores';
+
+export interface LeaderboardScore {
+  id?: number;
+  username: string;
+  topic: string;
+  score: number;
+  time: number; // in seconds
+  createdAt: Date;
+}
+
+// Add the new store to the DB schema interface
+interface TILShowDB extends DBSchema {
+  [SETS_STORE_NAME]: {
+    key: number;
+    value: FlashcardSet;
+    indexes: { 'createdAt': Date };
+  };
+  [LEADERBOARD_STORE_NAME]: {
+    key: number;
+    value: LeaderboardScore;
+    indexes: { 'topic': string };
+  };
+}
 
 interface Flashcard {
   sideA: string;
@@ -26,12 +51,21 @@ interface TILShowDB extends DBSchema {
 }
 
 const dbPromise = openDB<TILShowDB>(DB_NAME, DB_VERSION, {
-  upgrade(db) {
-    const store = db.createObjectStore(SETS_STORE_NAME, {
-      keyPath: 'id',
-      autoIncrement: true,
-    });
-    store.createIndex('createdAt', 'createdAt');
+  upgrade(db, oldVersion) {
+    if (oldVersion < 1) {
+      const setsStore = db.createObjectStore(SETS_STORE_NAME, {
+        keyPath: 'id',
+        autoIncrement: true,
+      });
+      setsStore.createIndex('createdAt', 'createdAt');
+    }
+    if (oldVersion < 2) { // Logic to create the new store
+      const leaderboardStore = db.createObjectStore(LEADERBOARD_STORE_NAME, {
+        keyPath: 'id',
+        autoIncrement: true,
+      });
+      leaderboardStore.createIndex('topic', 'topic');
+    }
   },
 });
 
@@ -54,4 +88,17 @@ export const getAllFlashcardSets = async (): Promise<FlashcardSet[]> => {
 export const getFlashcardSetById = async (id: number): Promise<FlashcardSet | undefined> => {
   const db = await dbPromise;
   return db.get(SETS_STORE_NAME, id);
+};
+
+export const addLeaderboardScore = async (scoreData: Omit<LeaderboardScore, 'id' | 'createdAt'>): Promise<void> => {
+  const db = await dbPromise;
+  await db.add(LEADERBOARD_STORE_NAME, {
+    ...scoreData,
+    createdAt: new Date(),
+  });
+};
+
+export const getLeaderboardScores = async (): Promise<LeaderboardScore[]> => {
+  const db = await dbPromise;
+  return db.getAll(LEADERBOARD_STORE_NAME);
 };

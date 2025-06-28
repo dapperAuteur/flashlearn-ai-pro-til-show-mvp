@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { LlmInference, FilesetResolver } from '@mediapipe/tasks-genai';
+import { LlmInference } from '@mediapipe/tasks-text';
 
 export const useGemma = () => {
   const [llmInference, setLlmInference] = useState<LlmInference | null>(null);
@@ -14,18 +13,11 @@ export const useGemma = () => {
     const initialize = async () => {
       try {
         setIsLoading(true);
-        // Path to the .gguf model file you placed in the /public folder
-        const modelPath = '/models/gemma-2-2b-it/gemma2-2b-it-cpu-int8.task';
-
-        // FIX 1: Create the WasmFileset using FilesetResolver
-        const wasmFileset = await FilesetResolver.forGenAiTasks(
-          // Path to the WASM files, typically from a CDN
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'
-        );
-
-        // FIX 2: Pass the wasmFileset and modelPath as two separate arguments
-        const llm = await LlmInference.createFromModelPath(wasmFileset, modelPath);
-        
+        // Path to the model files you placed in the /public folder
+        const modelPath = '/models/gemma-2b-it/model.json'; 
+        const llm = await LlmInference.createFromOptions({
+          baseOptions: { modelAssetPath: modelPath }
+        });
         setLlmInference(llm);
       } catch (e: any) {
         setError(`Failed to initialize AI model: ${e.message}`);

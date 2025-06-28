@@ -1,4 +1,5 @@
 import CardGeneratorLoader from '@/components/CardGeneratorLoader';
+import NotifyForm from '@/components/NotifyForm';
 
 export default function Home() {
   return (
@@ -12,7 +13,7 @@ export default function Home() {
 
       {/* Use our new client-side loader component */}
       <CardGeneratorLoader />
-
+      <NotifyForm />
     </div>
   );
 }

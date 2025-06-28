@@ -66,27 +66,30 @@ export default function CardGenerator() {
     return <StudySession set={studyingSet} onEndSession={() => setStudyingSet(null)} />;
   }
 
+  // Replace your existing return block with this one:
   return (
     <>
       <div className="p-8 bg-gray-800/50 rounded-lg max-w-3xl mx-auto">
         <div className="flex flex-col sm:flex-row gap-4">
           <input
             type="text" value={topic} onChange={(e) => setTopic(e.target.value)}
-            placeholder="Enter a topic..."
+            placeholder="Enter a topic (e.g., 'The Roman Empire')"
             className="flex-grow bg-gray-700 text-white placeholder-gray-400 rounded-md px-4 py-2 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
             disabled={isLoading} />
           <button
             onClick={handleGenerateClick}
             className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-md transition-colors duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed"
             disabled={isLoading} >
-            {isLoading ? 'AI is thinking...' : 'Generate Cards'}
+            {/* FIX: Changed to use a static string instead of loadingStatus */}
+            {isLoading ? 'AI is Thinking...' : 'Generate Cards'}
           </button>
         </div>
+        {/* FIX: Changed to show a static message instead of loadingStatus */}
+        {isLoading && <p className="text-center text-cyan-300 mt-4 animate-pulse">Generating cards, this may take a moment...</p>}
         {error && <p className="text-red-500 text-center mt-4">{error}</p>}
       </div>
 
       <div className="mt-12 max-w-3xl mx-auto">
-         {/* The list of sets JSX remains the same as before */}
         <h3 className="text-2xl font-bold text-white mb-4">Your Flashcard Sets</h3>
         <div className="space-y-4">
           {sets.length > 0 ? (

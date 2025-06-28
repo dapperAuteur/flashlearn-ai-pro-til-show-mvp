@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FlashcardSet } from '@/utils/db';
 
 // Helper function to encode data for the URL
@@ -22,6 +22,8 @@ export default function StudySession({ set, onEndSession }: StudySessionProps) {
   const [isComplete, setIsComplete] = useState(false);
   const [startTime] = useState(Date.now());
 
+  
+
   const handleAnswer = (isCorrect: boolean) => {
     if (isCorrect) setScore(prev => prev + 1);
     if (currentIndex === set.cards.length - 1) {
@@ -35,6 +37,20 @@ export default function StudySession({ set, onEndSession }: StudySessionProps) {
   const completionTime = Math.round((Date.now() - startTime) / 1000);
   // Encode the entire card set into the URL
   const shareableLink = `${window.location.origin}/challenge?data=${encodeDataForURL(set.cards)}&score=${score}&time=${completionTime}&topic=${encodeURIComponent(set.topic)}`;
+
+  useEffect(() => {
+    if (isComplete) {
+      const username = getUsername();
+      if (username) {
+        addLeaderboardScore({
+          username,
+          topic: set.topic,
+          score,
+          time: completionTime,
+        });
+      }
+    }
+  }, [isComplete, set.topic, score, completionTime]);
 
   if (isComplete) {
     return (
