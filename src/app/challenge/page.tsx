@@ -44,25 +44,28 @@ export default function ChallengePage() {
 
   return (
     <div className="text-center">
-      <h2 className="text-3xl font-bold">You've been challenged!</h2>
+      <h2 className="text-3xl font-bold">{score ? "You've been challenged!" : "A flashcard set was shared with you!"}</h2>
       <p className="text-lg mt-2 text-gray-300">Topic: <span className="font-bold text-white">{topic || 'Unknown'}</span></p>
       
-      <div className="my-8 p-6 bg-gray-800/50 rounded-lg max-w-sm mx-auto">
-        <p className="text-gray-400">Score to Beat:</p>
-        <p className="text-cyan-400 text-5xl font-bold">{score || 'N/A'}</p>
-        <p className="text-gray-400 mt-4">Time to Beat:</p>
-        <p className="text-cyan-400 text-3xl font-bold">{time || 'N/A'} seconds</p>
-      </div>
+      {/* Only show the "Score to Beat" section if score exists in the URL */}
+      {score && (
+        <div className="my-8 p-6 bg-gray-800/50 rounded-lg max-w-sm mx-auto">
+          <p className="text-gray-400">Score to Beat:</p>
+          <p className="text-cyan-400 text-5xl font-bold">{score}</p>
+          <p className="text-gray-400 mt-4">Time to Beat:</p>
+          <p className="text-cyan-400 text-3xl font-bold">{time || 'N/A'} seconds</p>
+        </div>
+      )}
 
       {cardData ? (
         <button 
           onClick={() => setStartChallenge(true)}
-          className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg text-xl transition-colors"
+          className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg text-xl transition-colors mt-8"
         >
-          Accept Challenge!
+          {score ? 'Accept Challenge!' : 'Study This Set'}
         </button>
       ) : (
-        <p className="text-red-500">Challenge data is invalid or missing from the URL.</p>
+        <p className="text-red-500 mt-8">Challenge data is invalid or missing from the URL.</p>
       )}
        <Link href="/" className="block mt-8 text-cyan-400 hover:underline">
         Or, create your own sets

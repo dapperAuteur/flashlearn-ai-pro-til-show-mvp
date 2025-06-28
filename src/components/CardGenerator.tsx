@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-"use client"
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -11,6 +9,14 @@ import UsernameSetter from './UsernameSetter';
 import ReviewAlert from './ReviewAlert';
 
 type View = 'generator' | 'leaderboard';
+
+// Helper function to create a shareable link for a set
+const createShareLink = (set: FlashcardSet): string => {
+  const data = btoa(JSON.stringify(set.cards));
+  const topic = encodeURIComponent(set.topic);
+  // Note: We are NOT including score or time for a general share
+  return `${window.location.origin}/challenge?data=${data}&topic=${topic}`;
+};
 
 export default function CardGenerator() {
   // --- STATE MANAGEMENT ---
@@ -39,6 +45,29 @@ export default function CardGenerator() {
   useEffect(() => {
     getAllFlashcardSets().then(setSets);
   }, []);
+
+  const handleShare = async (set: FlashcardSet) => {
+    const shareUrl = createShareLink(set);
+    const shareData = {
+      title: `TIL.Show Flashcards: ${set.topic}`,
+      text: `Check out this flashcard set I made on "${set.topic}"!`,
+      url: shareUrl,
+    };
+
+    // Use the Web Share API if available
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        console.log('Set shared successfully');
+      } catch (err) {
+        console.error('Share failed:', err);
+      }
+    } else {
+      // Fallback for desktop browsers: copy link to clipboard
+      navigator.clipboard.writeText(shareUrl);
+      alert('Share link copied to clipboard!');
+    }
+  };
 
   const handleGenerateClick = async () => {
     if (!topic || !isPaidUser) return;
@@ -107,6 +136,15 @@ export default function CardGenerator() {
                 {isLoading ? 'Gemini is Thinking...' : 'Generate Cards'}
               </button>
             </div>
+            <div className="text-center mt-4">
+              <a 
+                href="/flashcard_template.csv" 
+                download="flashcard_template.csv"
+                className="text-sm text-cyan-400 hover:text-cyan-300 hover:underline"
+              >
+                Download CSV Template for Bulk Import
+              </a>
+            </div>
             {error && <p className="text-red-500 text-center mt-4">{error}</p>}
           </div>
           <ReviewAlert onStartReview={setStudyingSet} />
@@ -119,9 +157,15 @@ export default function CardGenerator() {
                     <p className="font-semibold text-white text-lg">{set.topic}</p>
                     <p className="text-gray-400 text-sm">{set.cards.length} cards</p>
                   </div>
-                  <button onClick={() => setStudyingSet(set)} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md">
-                    Study
-                  </button>
+                  <div className="flex gap-2">
+                    {/* Share Button Added Here */}
+                    <button onClick={() => handleShare(set)} title="Share this set" className="bg-gray-600 hover:bg-gray-700 text-white font-bold p-2 rounded-md">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    </button>
+                    <button onClick={() => setStudyingSet(set)} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md">
+                      Study
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
