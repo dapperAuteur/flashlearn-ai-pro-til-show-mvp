@@ -3,6 +3,9 @@
 
 import { useEffect, useState } from 'react';
 import { FlashcardSet } from '@/utils/db';
+import { addLeaderboardScore } from '@/utils/db';
+import { getUsername } from '@/components/UsernameSetter';
+
 
 // Helper function to encode data for the URL
 const encodeDataForURL = (data: any): string => {

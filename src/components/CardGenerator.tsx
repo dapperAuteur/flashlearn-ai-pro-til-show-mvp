@@ -1,24 +1,22 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { addFlashcardSet, getAllFlashcardSets, FlashcardSet } from '@/utils/db';
 import StudySession from './StudySession';
-import { useGemma } from '@/hooks/useGemma'; // Import our new hook
+import { useGemma } from '@/hooks/useGemma';
+import Leaderboard from './Leaderboard'; // Import Leaderboard
+import UsernameSetter from './UsernameSetter'; // Import UsernameSetter
+
+type View = 'generator' | 'leaderboard';
 
 export default function CardGenerator() {
   const [topic, setTopic] = useState('');
   const [sets, setSets] = useState<FlashcardSet[]>([]);
   const [studyingSet, setStudyingSet] = useState<FlashcardSet | null>(null);
+  const [view, setView] = useState<View>('generator'); // State to control the view
   
-  // Use our custom hook to get access to Gemma
   const { generateResponse, isLoading, error } = useGemma();
 
   useEffect(() => {
-    const loadSets = async () => {
-      const savedSets = await getAllFlashcardSets();
-      setSets(savedSets);
-    };
-    loadSets();
+    getAllFlashcardSets().then(setSets);
   }, []);
 
   const handleGenerateClick = async () => {
@@ -69,48 +67,47 @@ export default function CardGenerator() {
   // Replace your existing return block with this one:
   return (
     <>
-      <div className="p-8 bg-gray-800/50 rounded-lg max-w-3xl mx-auto">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <input
-            type="text" value={topic} onChange={(e) => setTopic(e.target.value)}
-            placeholder="Enter a topic (e.g., 'The Roman Empire')"
-            className="flex-grow bg-gray-700 text-white placeholder-gray-400 rounded-md px-4 py-2 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            disabled={isLoading} />
-          <button
-            onClick={handleGenerateClick}
-            className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-md transition-colors duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed"
-            disabled={isLoading} >
-            {/* FIX: Changed to use a static string instead of loadingStatus */}
-            {isLoading ? 'AI is Thinking...' : 'Generate Cards'}
-          </button>
-        </div>
-        {/* FIX: Changed to show a static message instead of loadingStatus */}
-        {isLoading && <p className="text-center text-cyan-300 mt-4 animate-pulse">Generating cards, this may take a moment...</p>}
-        {error && <p className="text-red-500 text-center mt-4">{error}</p>}
-      </div>
+      <UsernameSetter /> {/* This will only show if username is not set */}
 
-      <div className="mt-12 max-w-3xl mx-auto">
-        <h3 className="text-2xl font-bold text-white mb-4">Your Flashcard Sets</h3>
-        <div className="space-y-4">
-          {sets.length > 0 ? (
-            sets.map((set) => (
-              <div key={set.id} className="bg-gray-800 p-4 rounded-md shadow-md flex justify-between items-center">
-                <div>
-                  <p className="font-semibold text-white text-lg">{set.topic}</p>
-                  <p className="text-gray-400 text-sm">{set.cards.length} cards - Created on {new Date(set.createdAt).toLocaleDateString()}</p>
-                </div>
-                <button 
-                  onClick={() => setStudyingSet(set)}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
-                  Study
-                </button>
-              </div>
-            ))
-          ) : (
-            <p className="text-gray-400 text-center py-4">You haven&apos;t generated any sets yet.</p>
-          )}
+      <div className="text-center mb-8">
+        <div className="inline-flex bg-gray-800 p-1 rounded-lg">
+          <button onClick={() => setView('generator')} className={`px-6 py-2 rounded-md ${view === 'generator' ? 'bg-cyan-500 text-white' : 'text-gray-300'}`}>Generator</button>
+          <button onClick={() => setView('leaderboard')} className={`px-6 py-2 rounded-md ${view === 'leaderboard' ? 'bg-cyan-500 text-white' : 'text-gray-300'}`}>Leaderboard</button>
         </div>
       </div>
+      
+      {view === 'generator' && (
+        <>
+          <div className="p-8 bg-gray-800/50 rounded-lg max-w-3xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a topic..." className="flex-grow bg-gray-700 text-white rounded-md px-4 py-2 border border-gray-600" disabled={isLoading} />
+              <button onClick={handleGenerateClick} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-md" disabled={isLoading}>
+                {isLoading ? 'AI is Thinking...' : 'Generate Cards'}
+              </button>
+            </div>
+            {error && <p className="text-red-500 text-center mt-4">{error}</p>}
+          </div>
+
+          <div className="mt-12 max-w-3xl mx-auto">
+            <h3 className="text-2xl font-bold text-white mb-4">Your Flashcard Sets</h3>
+            <div className="space-y-4">
+              {sets.map((set) => (
+                <div key={set.id} className="bg-gray-800 p-4 rounded-md shadow-md flex justify-between items-center">
+                  <div>
+                    <p className="font-semibold text-white text-lg">{set.topic}</p>
+                    <p className="text-gray-400 text-sm">{set.cards.length} cards</p>
+                  </div>
+                  <button onClick={() => setStudyingSet(set)} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md">
+                    Study
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {view === 'leaderboard' && <Leaderboard />}
     </>
   );
 }
