@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
+import { cookies } from 'next/headers'; // Import cookies from next/headers
+import jwt from 'jsonwebtoken';
+import AuthStatus from "@/components/AuthStatus"; // Import our new component
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -10,11 +13,29 @@ export const metadata: Metadata = {
   description: "AI-Powered Flashcards for Lifelong Learners",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Check for the auth token on the server
+  let isLoggedIn = false;
+
+  try {
+    const cookieStore = cookies();
+  const token = (await cookieStore).get('token')?.value;
+  
+    if (token) {
+      // Verify the token. If it's valid, the user is logged in.
+      jwt.verify(token, process.env.JWT_SECRET || '');
+      isLoggedIn = true;
+    }
+  } catch (error) {
+    console.log('Token verification failed error :>> ', error);
+    console.error('Token verification failed:', error);
+    // If verification fails, treat as logged out
+    isLoggedIn = false;
+  }
   return (
     <html lang="en">
       <body className={`${inter.className} bg-gray-900 text-gray-100`}>
@@ -23,12 +44,8 @@ export default function RootLayout({
           <header className="bg-gray-800/50 backdrop-blur-sm shadow-md sticky top-0 z-10">
             <nav className="container mx-auto px-4 py-3 flex justify-between items-center">
               <Link href="/" className="text-xl font-bold text-white">TIL.Show</Link>
-              <div>
-                {/* We'll add a login link here later */}
-                <Link href="/register" className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors">
-                  Sign Up
-                </Link>
-              </div>
+              <AuthStatus isLoggedIn={isLoggedIn} />
+              
             </nav>
           </header>
 
