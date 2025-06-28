@@ -50,3 +50,8 @@ export const getAllFlashcardSets = async (): Promise<FlashcardSet[]> => {
   // Get all sets and sort by most recently created
   return db.getAllFromIndex(SETS_STORE_NAME, 'createdAt').then(sets => sets.reverse());
 };
+
+export const getFlashcardSetById = async (id: number): Promise<FlashcardSet | undefined> => {
+  const db = await dbPromise;
+  return db.get(SETS_STORE_NAME, id);
+};

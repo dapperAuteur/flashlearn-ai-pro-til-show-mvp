@@ -1,4 +1,4 @@
-import CardGenerator from '@/components/CardGenerator'; // Import the new component
+import CardGeneratorLoader from '@/components/CardGeneratorLoader';
 
 export default function Home() {
   return (
@@ -10,8 +10,8 @@ export default function Home() {
         Enter a topic below, and our on-device AI will generate a set of flashcards for you.
       </p>
 
-      {/* Use the CardGenerator component here */}
-      <CardGenerator />
+      {/* Use our new client-side loader component */}
+      <CardGeneratorLoader />
 
     </div>
   );
