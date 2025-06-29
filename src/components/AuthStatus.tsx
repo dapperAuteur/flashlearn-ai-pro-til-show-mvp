@@ -13,6 +13,7 @@ export default function AuthStatus({ isLoggedIn }: AuthStatusProps) {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/');
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {

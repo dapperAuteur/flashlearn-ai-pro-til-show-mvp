@@ -13,64 +13,74 @@ export async function POST(request: NextRequest) {
   const body = await request.text(); // We need the raw body for verification
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
+  console.log('--- STRIPE WEBHOOK RECEIVED ---');
+
   let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(body, signature!, webhookSecret);
   } catch (err: any) {
-    console.error(`❌ Error message: ${err.message}`);
+    console.error(`❌ Webhook signature verification failed. Error: ${err.message}`);
     return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
   }
 
-  // Handle the event
-  switch (event.type) {
-  case 'checkout.session.completed': { // Use brackets to scope constants
-    const session = event.data.object as Stripe.Checkout.Session;
-    console.log('✅ Checkout session completed for user:', session.metadata?.userId);
+  try {
+    // Handle the event
+    switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const userId = session.metadata?.userId;
+      console.log('Processing checkout.session.completed for userId session:', userId, session);
 
-    const userId = session.metadata?.userId;
-    if (!userId) {
-      console.error('Webhook Error: Missing userId in session metadata.');
-      break;
-    }
-    
-    await dbConnect();
 
-    // Handle one-time payment for lifetime access
-    if (session.mode === 'payment') {
-      await User.findByIdAndUpdate(userId, {
-        subscriptionStatus: 'lifetime', // Set a specific status for lifetime
-      });
-      console.log(`Updated user ${userId} to lifetime status.`);
-    }
+      if (!userId) {
+        console.error('Webhook Error: Missing userId in checkout session metadata.');
+        break;
+      }
 
-    // Handle a new subscription
-    if (session.mode === 'subscription') {
-      await User.findByIdAndUpdate(userId, {
-        subscriptionStatus: 'active',
-        stripeSubscriptionId: session.subscription?.toString(),
-      });
-      console.log(`Updated user ${userId} to active subscription.`);
+      await dbConnect();
+      
+      let updateData = {};
+
+      if (session.mode === 'subscription') {
+        updateData = {
+          subscriptionStatus: 'active',
+          stripeSubscriptionId: session.subscription?.toString(),
+        };
+        console.log(`✅ User ${userId} started a subscription. updateData: ${updateData}`);
+      } else if (session.mode === 'payment') {
+        updateData = {
+          subscriptionStatus: 'lifetime',
+          // No subscription ID for one-time payments
+        };
+        console.log(`✅ User ${userId} made a lifetime purchase. , updateData: ${updateData}`);
+      }
+
+        const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
+        console.log(`Database update result for user ${userId}:`, updatedUser);
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        await dbConnect();
+        
+        const updatedUser = await User.findOneAndUpdate(
+          { stripeSubscriptionId: subscription.id },
+          { subscriptionStatus: 'inactive' },
+          { new: true }
+        );
+        console.log(`❌ Subscription deleted. User ${updatedUser?._id} status set to inactive.`);
+        break;
+      }
+
+      default:
+      console.warn(`🤷‍♀️ Unhandled event type ${event.type}`);
     }
-    break;
+  } catch (error) {
+    console.error('Error processing webhook event:', error);
+    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
   }
-
-  case 'customer.subscription.deleted': { // Handle cancellations
-    const subscription = event.data.object as Stripe.Subscription;
-    await dbConnect();
-    
-    // Find the user by their Stripe subscription ID and downgrade them
-    await User.findOneAndUpdate(
-      { stripeSubscriptionId: subscription.id },
-      { subscriptionStatus: 'inactive' }
-    );
-    console.log(`Subscription deleted for user with sub ID: ${subscription.id}`);
-    break;
-  }
-
-  default:
-    console.warn(`Unhandled event type ${event.type}`);
-}
 
   return NextResponse.json({ received: true });
 }

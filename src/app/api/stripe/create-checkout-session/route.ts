@@ -26,17 +26,38 @@ export async function POST(request: NextRequest) {
 
     let stripeCustomerId = user.stripeCustomerId;
 
+    if (stripeCustomerId) {
+      // If user has an ID, retrieve the customer from Stripe
+      // This is to ensure the customer hasn't been deleted in Stripe
+      try {
+        await stripe.customers.retrieve(stripeCustomerId);
+      } catch (error) {
+        console.log('Retrieving customer from Stripe with stripeCustomerId failed with error :>> ', error);
+        // Customer was deleted in Stripe, so we'll create a new one
+        stripeCustomerId = undefined;
+      }
+    }
+
     // 2. If the user doesn't have a Stripe Customer ID, create one
     if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
+      const customers = await stripe.customers.list({
         email: user.email,
-        name: user.name, // Or a name field if you collect one
+        limit: 1
       });
-      stripeCustomerId = customer.id;
+      if (customers.data.length > 0) {
+        // Customer with this email already exists in Stripe
+        stripeCustomerId = customers.data[0].id;
+      } else {
+        // No customer found, so create a new one
+        const customer = await stripe.customers.create({
+          email: user.email,
+          name: user.name
+        });
+        stripeCustomerId = customer.id;
+      }
 
       // 3. Save the new ID to our User model in our database
-      user.stripeCustomerId = stripeCustomerId;
-      await user.save();
+      await User.findByIdAndUpdate(userId, { stripeCustomerId: stripeCustomerId });
     }
 
     const mode: Stripe.Checkout.Session.Mode = 
@@ -51,8 +72,10 @@ export async function POST(request: NextRequest) {
         quantity: 1,
       }],
       mode: mode,
-      success_url: `${request.headers.get('origin')}/?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${request.headers.get('origin')}/`,
+      success_url: `${request.headers.get('origin')}/?payment_success=true`,
+      cancel_url: `${request.headers.get('origin')}/pricing`,
+      // success_url: `${request.headers.get('origin')}/?session_id={CHECKOUT_SESSION_ID}`,
+      // cancel_url: `${request.headers.get('origin')}/`,
       // We pass the userId in metadata to identify the user in the webhook
       customer: stripeCustomerId, 
       // We still pass metadata for our webhook to easily find our internal userId
