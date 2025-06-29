@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import getStripe from '@/lib/stripe';
+import Link from 'next/link';
 
 interface Plan {
   name: string;
@@ -35,6 +36,23 @@ const plans: Plan[] = [
 export default function PricingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  // Fetch the user's status when the page loads
+  useEffect(() => {
+    fetch('/api/user/me')
+      .then(res => {
+        if (res.ok) return res.json();
+        return null;
+      })
+      .then(data => {
+        setUser(data?.user);
+      })
+      .finally(() => {
+        setIsAuthLoading(false);
+      });
+  }, []);
 
   const handleCheckout = async (priceId: string) => {
     setIsLoading(true);
@@ -65,10 +83,44 @@ export default function PricingPage() {
     }
   };
 
+  if (isAuthLoading) {
+    return <p className="text-center">Loading...</p>;
+  }
+
+  // If user is NOT logged in, show a prompt to log in
+  if (!user) {
+    return (
+       <div className="max-w-4xl mx-auto text-center">
+        <h1 className="text-4xl font-bold text-white mb-4">Choose Your Plan</h1>
+        <div className="bg-gray-800/50 p-8 rounded-lg mt-12">
+            <p className="text-lg text-gray-200">Please log in or create an account to upgrade.</p>
+            <div className="mt-6 flex justify-center gap-4">
+                <Link href="/login" className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-md">Log In</Link>
+                <Link href="/register" className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-md">Sign Up</Link>
+            </div>
+        </div>
+      </div>
+    )
+  }
+
+  // If user IS logged in and has an active subscription, show a thank you message
+  if (user.subscriptionStatus === 'active' || user.subscriptionStatus === 'lifetime') {
+    return (
+      <div className="max-w-4xl mx-auto text-center">
+        <h1 className="text-4xl font-bold text-white mb-4">You Are Already a Premium Member!</h1>
+        <p className="text-lg text-gray-300 mb-12">Thank you for your support. You can manage your subscription in your settings.</p>
+        <Link href="/settings" className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-lg text-xl">Go to Settings</Link>
+      </div>
+    );
+  }
+
+
+  // If user IS logged in and has NO subscription, show the pricing plans
+
   return (
     <div className="max-w-4xl mx-auto text-center">
       <h1 className="text-4xl font-bold text-white mb-4">Choose Your Plan</h1>
-      <p className="text-lg text-gray-300 mb-12">Unlock premium features like unlimited AI card generation.</p>
+      <p className="text-lg text-gray-300 mb-12">Unlock premium features like AI card generation.</p>
       
       {error && <p className="text-red-500 mb-4">{error}</p>}
       
