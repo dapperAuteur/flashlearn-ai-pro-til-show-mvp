@@ -3,11 +3,20 @@ import mongoose, { Schema, models } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const UserSchema = new Schema({
+  name: {
+    type: String,
+    required: [true, 'Name is required.'],
+  },
   email: {
     type: String,
     required: [true, 'Email is required.'],
     unique: true,
     match: [/.+\@.+\..+/, 'Please fill a valid email address'],
+  },
+  zipCode: { // --- NEW ---
+    type: String,
+    required: [true, 'Zip code is required.'],
+    match: [/^\d{5}$/, 'Please fill a valid 5-digit zip code'],
   },
   password: {
     type: String,
@@ -18,6 +27,18 @@ const UserSchema = new Schema({
     type: String,
     enum: ['Student', 'Teacher/Parent', 'Community Leader', 'Teammate', 'Admin'],
     default: 'Student',
+  },
+  stripeCustomerId: {
+    type: String,
+    // We don't make this required because a user won't have one until their first payment action
+  },
+  subscriptionStatus: {
+    type: String,
+    enum: ['active', 'inactive', 'lifetime', 'canceled'],
+    default: 'inactive',
+  },
+  stripeSubscriptionId: {
+    type: String,
   },
   // We will add other fields like subscription, apiKey, etc., in later phases.
 }, {

@@ -11,8 +11,6 @@ const CardGenerator = dynamic(
   }
 );
 
-export default function CardGeneratorLoader() {
-  console.log("CardGeneratorLoader");
-  
+export default function CardGeneratorLoader() {  
   return <CardGenerator />;
 }

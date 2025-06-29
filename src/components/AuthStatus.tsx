@@ -23,12 +23,18 @@ export default function AuthStatus({ isLoggedIn }: AuthStatusProps) {
 
   if (isLoggedIn) {
     return (
-      <button
-        onClick={handleLogout}
-        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors"
-      >
-        Log Out
-      </button>
+      <div className="flex items-center gap-4">
+        {/* --- NEW SETTINGS LINK --- */}
+        <Link href="/settings" className="text-gray-300 hover:text-white transition-colors text-sm">
+          Settings
+        </Link>
+        <button
+          onClick={handleLogout}
+          className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors"
+        >
+          Log Out
+        </button>
+      </div>
     );
   }
 

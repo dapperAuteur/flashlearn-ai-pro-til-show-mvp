@@ -14,12 +14,12 @@ export async function POST(request: Request) {
 
   try {
     // 2. Parse the request body to get email and password
-    const { email, password } = await request.json();
+    const { name, email, zipCode, password } = await request.json();
 
     // 3. Validate input
-    if (!email || !password) {
+    if (!name || !email || !zipCode || !password) {
       return NextResponse.json(
-        { message: 'Email and password are required.' },
+        { message: 'Name, email, zip code, and password are required.' },
         { status: 400 }
       );
     }
@@ -46,7 +46,9 @@ export async function POST(request: Request) {
     // 5. Create a new user instance
     // The password will be hashed automatically by the pre-save hook in our User model
     const newUser = new User({
+      name,
       email,
+      zipCode,
       password,
       // Role defaults to 'Student' as defined in the schema
     });
@@ -60,6 +62,7 @@ export async function POST(request: Request) {
         message: 'User created successfully.',
         user: {
           id: newUser._id,
+          name: newUser.name,
           email: newUser.email,
           role: newUser.role,
         },

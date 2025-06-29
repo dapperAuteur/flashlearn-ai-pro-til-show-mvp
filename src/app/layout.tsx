@@ -46,7 +46,12 @@ export default async function RootLayout({
           <header className="bg-gray-800/50 backdrop-blur-sm shadow-md sticky top-0 z-10">
             <nav className="container mx-auto px-4 py-3 flex justify-between items-center">
               <Link href="/" className="text-xl font-bold text-white">TIL.Show</Link>
-              <AuthStatus isLoggedIn={isLoggedIn} />
+              <div className="flex items-center gap-4">
+                <Link href="/pricing" className="text-cyan-400 font-bold hover:text-cyan-300 transition-colors">
+                  Upgrade
+                </Link>
+                <AuthStatus isLoggedIn={isLoggedIn} />
+              </div>
               
             </nav>
           </header>
