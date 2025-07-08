@@ -5,7 +5,12 @@ import { useState, useEffect } from 'react';
 export const getUsername = () => localStorage.getItem('til_show_username');
 const setUsernameInStorage = (name: string) => localStorage.setItem('til_show_username', name);
 
-export default function UsernameSetter() {
+// Add an `onClose` prop to allow the parent to control visibility
+interface UsernameSetterProps {
+  onClose: () => void;
+}
+
+export default function UsernameSetter({ onClose }: UsernameSetterProps) {
   const [username, setUsername] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
 
@@ -17,6 +22,7 @@ export default function UsernameSetter() {
     if (inputValue.trim()) {
       setUsernameInStorage(inputValue.trim());
       setUsername(inputValue.trim());
+      onClose(); // Close the modal
     }
   };
 
@@ -38,9 +44,21 @@ export default function UsernameSetter() {
             placeholder="Your cool name"
             className="flex-grow bg-gray-700 text-white rounded-md px-4 py-2 border border-gray-600"
           />
-          <button onClick={handleSave} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-md">
-            Save
-          </button>
+          <div className="flex gap-4">
+            {/* The new Cancel button */}
+            <button 
+              onClick={onClose} 
+              className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-md transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleSave} 
+              className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-md transition-colors"
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
     </div>
