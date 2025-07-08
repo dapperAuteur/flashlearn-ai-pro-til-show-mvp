@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import StudySession from './StudySession';
 import Leaderboard from './Leaderboard';
-import UsernameSetter from './UsernameSetter';
+import UsernameSetter, { getUsername } from './UsernameSetter';
 import ReviewAlert from './ReviewAlert';
 import { FlashcardSet } from '@/types';
 
@@ -24,6 +24,9 @@ export default function CardGenerator() {
   const [sets, setSets] = useState<FlashcardSet[]>([]);
   const [studyingSet, setStudyingSet] = useState<FlashcardSet | null>(null);
   const [view, setView] = useState<View>('generator');
+
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+
 
   const refreshSets = async () => {
     try {
@@ -51,6 +54,10 @@ export default function CardGenerator() {
   const [isPaidUser, setIsPaidUser] = useState(true); 
 
    useEffect(() => {
+    // Check if a username exists when the app loads. If not, show the modal.
+    if (!getUsername()) {
+      setShowUsernameModal(true);
+    }
     refreshSets();
   }, []);
 
@@ -122,7 +129,9 @@ export default function CardGenerator() {
 
   return (
     <>
-      <UsernameSetter />
+      {/* Conditionally render the UsernameSetter based on state */}
+      {showUsernameModal && <UsernameSetter onClose={() => setShowUsernameModal(false)} />}
+      
       <div className="text-center mb-8">
         <div className="inline-flex bg-gray-800 p-1 rounded-lg">
           <button onClick={() => setView('generator')} className={`px-6 py-2 rounded-md ${view === 'generator' ? 'bg-cyan-500 text-white' : 'text-gray-300'}`}>Generator</button>
