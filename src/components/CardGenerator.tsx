@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession, signIn } from 'next-auth/react'; // <-- Import useSession and signIn
 import StudySession from './StudySession';
 import Leaderboard from './Leaderboard';
 import UsernameSetter, { getUsername } from './UsernameSetter';
@@ -14,28 +15,32 @@ type View = 'generator' | 'leaderboard';
 const createShareLink = (set: FlashcardSet): string => {
   const data = btoa(JSON.stringify(set.cards));
   const topic = encodeURIComponent(set.topic);
-  // Note: We are NOT including score or time for a general share
   return `${window.location.origin}/challenge?data=${data}&topic=${topic}`;
 };
 
 export default function CardGenerator() {
   // --- STATE MANAGEMENT ---
+  const { data: session, status } = useSession(); // <-- Get session data
+  const isAuthenticated = status === 'authenticated';
+
   const [topic, setTopic] = useState('');
   const [sets, setSets] = useState<FlashcardSet[]>([]);
   const [studyingSet, setStudyingSet] = useState<FlashcardSet | null>(null);
   const [view, setView] = useState<View>('generator');
-
   const [showUsernameModal, setShowUsernameModal] = useState(false);
 
-
   const refreshSets = async () => {
+    // No need to fetch if the user isn't logged in.
+    if (!isAuthenticated) {
+        setSets([]);
+        return;
+    }
     try {
       const response = await fetch('/api/flashcard-sets');
       if (response.ok) {
         const data = await response.json();
         setSets(data.sets);
       } else {
-        // If not logged in, the API returns an error, so we'll have an empty list
         setSets([]);
       }
     } catch (e) {
@@ -44,22 +49,19 @@ export default function CardGenerator() {
     }
   };
   
-  // State for API calls
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // --- MOCK FOR MVP ---
-  // In a real app, this would come from your user authentication system.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isPaidUser, setIsPaidUser] = useState(true); 
-
    useEffect(() => {
-    // Check if a username exists when the app loads. If not, show the modal.
-    if (!getUsername()) {
+    // Only show the username modal if the auth status is determined.
+    if (status !== 'loading' && !getUsername()) {
       setShowUsernameModal(true);
     }
-    refreshSets();
-  }, []);
+    // Only refresh sets if the user is authenticated.
+    if (isAuthenticated) {
+        refreshSets();
+    }
+  }, [status, isAuthenticated]);
 
   const handleShare = async (set: FlashcardSet) => {
     const shareUrl = createShareLink(set);
@@ -69,46 +71,48 @@ export default function CardGenerator() {
       url: shareUrl,
     };
 
-    // Use the Web Share API if available
     if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-        console.log('Set shared successfully');
-      } catch (err) {
-        console.error('Share failed:', err);
-      }
+      await navigator.share(shareData).catch(err => console.error('Share failed:', err));
     } else {
-      // Fallback for desktop browsers: copy link to clipboard
       navigator.clipboard.writeText(shareUrl);
       alert('Share link copied to clipboard!');
     }
   };
 
   const handleGenerateClick = async () => {
+    // --- NEW: Check for authentication first ---
+    if (!isAuthenticated) {
+      // Redirect to login. NextAuth will handle the rest.
+      signIn(); 
+      return;
+    }
+
     if (!topic) return;
     
     setIsLoading(true);
     setError(null);
     
     try {
-      // 1. Generate cards from Gemini API (no change here)
       const genResponse = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic }),
       });
-      if (!genResponse.ok) throw new Error('Failed to generate cards from AI.');
+      
+      // Handle potential rate-limiting or other errors from the API
+      if (!genResponse.ok) {
+        const errorData = await genResponse.json();
+        throw new Error(errorData.error || 'Failed to generate cards from AI.');
+      }
       const genData = await genResponse.json();
 
-      // 2. Save the new set to our database via our new endpoint
       const saveResponse = await fetch('/api/flashcard-sets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ topic, cards: genData.cards }),
       });
-      if (!saveResponse.ok) throw new Error('Failed to save the new set. Are you logged in?');
+      if (!saveResponse.ok) throw new Error('Failed to save the new set.');
 
-      // 3. Refresh the list of sets from the server
       await refreshSets();
 
     } catch (e: any) {
@@ -120,7 +124,6 @@ export default function CardGenerator() {
   };
   
   if (studyingSet) {
-   // When a session ends, refresh the main sets list
     return <StudySession set={studyingSet} onEndSession={() => {
       setStudyingSet(null);
       refreshSets();
@@ -129,7 +132,6 @@ export default function CardGenerator() {
 
   return (
     <>
-      {/* Conditionally render the UsernameSetter based on state */}
       {showUsernameModal && <UsernameSetter onClose={() => setShowUsernameModal(false)} />}
       
       <div className="text-center mb-8">
@@ -142,14 +144,9 @@ export default function CardGenerator() {
       {view === 'generator' && (
         <>
           <div className="p-8 bg-gray-800/50 rounded-lg max-w-3xl mx-auto">
-            {!isPaidUser && (
-              <div className="text-center bg-yellow-900/50 border border-yellow-700 text-yellow-300 p-4 rounded-lg mb-4">
-                AI Card Generation is a premium feature. Upgrade to create custom sets.
-              </div>
-            )}
             <div className="flex flex-col sm:flex-row gap-4">
-              <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a topic..." className="flex-grow bg-gray-700 text-white rounded-md px-4 py-2 border border-gray-600" disabled={isLoading || !isPaidUser} />
-              <button onClick={handleGenerateClick} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={isLoading || !isPaidUser}>
+              <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Enter a topic..." className="flex-grow bg-gray-700 text-white rounded-md px-4 py-2 border border-gray-600" disabled={isLoading} />
+              <button onClick={handleGenerateClick} className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-6 rounded-md disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={isLoading}>
                 {isLoading ? 'Gemini is Thinking...' : 'Generate Cards'}
               </button>
             </div>
@@ -168,7 +165,7 @@ export default function CardGenerator() {
           <div className="mt-12 max-w-3xl mx-auto">
             <h3 className="text-2xl font-bold text-white mb-4">Your Flashcard Sets</h3>
             <div className="space-y-4">
-              {sets.length > 0 ? (
+              {isAuthenticated && sets.length > 0 ? (
                  sets.map((set: FlashcardSet) => (
                   <div key={String(set._id)} className="bg-gray-800 p-4 rounded-md shadow-md flex justify-between items-center">
                     <div>
@@ -186,7 +183,7 @@ export default function CardGenerator() {
                   </div>
                 ))
               ) : (
-                <p className="text-gray-400">Log in to see your saved flashcard sets.</p>
+                <p className="text-gray-400">Log in to generate and see your saved flashcard sets.</p>
               )}
             </div>
           </div>
