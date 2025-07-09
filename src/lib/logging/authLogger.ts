@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// lib/logging/authLogger.ts
 import { NextRequest } from "next/server";
+import { HydratedDocument } from "mongoose"; // Import HydratedDocument for correct typing
 import dbConnect from "@/lib/db/dbConnect";
 import { Logger, LogContext, LogLevel, AnalyticsLogger } from "./logger";
-import { AuthLogModel } from "@/models/Logs"; // <-- Import new Mongoose model
-import { AuthEventType, AuthLog } from "@/models/AuthLog";
+import { AuthLogModel, IAuthLog } from "@/models/Logs";
+import { AuthEventType } from "@/models/AuthLog";
 import { getClientIp } from "@/lib/utils";
 
 /**
@@ -31,7 +31,6 @@ export async function logAuthEvent({
     const message = `Auth event: ${event}, status: ${status}${reason ? `, reason: ${reason}` : ''}`;
     const level = status === "success" ? LogLevel.INFO : LogLevel.WARNING;
 
-    // The main logger can remain as is, as it will be refactored separately.
     await Logger.log({
       context: LogContext.AUTH,
       level,
@@ -58,7 +57,7 @@ export async function logAuthEvent({
 
     await dbConnect(); // Ensure DB connection is established
 
-    const logEntry = {
+    const logEntry: Partial<IAuthLog> = {
       event,
       userId,
       email,
@@ -71,11 +70,12 @@ export async function logAuthEvent({
     };
 
     // Use the Mongoose model to create the new log document
-    const result = await AuthLogModel.create(logEntry);
+    const result: HydratedDocument<IAuthLog> = await AuthLogModel.create(logEntry);
     
+    // The type is now correctly inferred, so ._id is available and correctly typed.
     return result._id.toString();
   } catch (error) {
-    console.error("Failed to log auth event:", error);
+    Logger.error(LogContext.SYSTEM, "Failed to log auth event", { error });
     return "logging-failed";
   }
 }
@@ -127,7 +127,7 @@ export async function checkSuspiciousActivity(
     
     return { suspicious: false };
   } catch (error) {
-    console.error("Failed to check for suspicious activity:", error);
+    Logger.error(LogContext.SYSTEM, "Failed to check for suspicious activity", { error });
     return { suspicious: false };
   }
 }
@@ -135,13 +135,14 @@ export async function checkSuspiciousActivity(
 /**
  * Get authentication logs for a specific user using Mongoose.
  */
-export async function getUserAuthLogs(userId: string, limit: number = 20): Promise<AuthLog[]> {
+export async function getUserAuthLogs(userId: string, limit: number = 20): Promise<any[]> {
   try {
     await dbConnect();
+    // Use .lean() for faster, plain JavaScript object results
     const logs = await AuthLogModel.find({ userId }).sort({ timestamp: -1 }).limit(limit).lean();
-    return logs as AuthLog[];
+    return logs as IAuthLog[];
   } catch (error) {
-    console.error("Failed to get user auth logs:", error);
+    Logger.error(LogContext.SYSTEM, "Failed to get user auth logs", { error, userId });
     return [];
   }
 }

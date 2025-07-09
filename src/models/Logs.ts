@@ -26,7 +26,7 @@ export const SystemLog: Model<ISystemLog> = mongoose.models.SystemLog || mongoos
 
 
 // --- Auth Log ---
-interface IAuthLog extends Document {
+export interface IAuthLog extends Document {
   event: AuthEventType;
   userId?: string;
   email?: string;
@@ -69,3 +69,5 @@ const StripeLogSchema: Schema<IStripeLog> = new Schema({
     requestId: { type: String },
 });
 export const StripeLogModel: Model<IStripeLog> = mongoose.models.StripeLog || mongoose.model<IStripeLog>('StripeLog', StripeLogSchema, 'stripe_logs');
+export const AuthLogModel: Model<IAuthLog> =
+  mongoose.models.AuthLog || mongoose.model<IAuthLog>("AuthLog", AuthLogSchema);

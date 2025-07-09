@@ -24,6 +24,7 @@ export enum AuthEventType {
   LOGIN_FAILURE = "login_failure",
   LOGOUT = "logout",
   PASSWORD_RESET_REQUEST = "password_reset_request",
+  PASSWORD_RESET_SUCCESS = "password_reset_success",
   PASSWORD_RESET = "password_reset",
   ACCOUNT_UPDATE = "account_update",
   MFA_ENABLE = "mfa_enable",
