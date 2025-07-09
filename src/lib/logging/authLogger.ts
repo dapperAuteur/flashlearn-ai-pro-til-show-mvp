@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // lib/logging/authLogger.ts
 import { NextRequest } from "next/server";
-import { Logger, LogContext, LogLevel } from "./logger";
-import { AnalyticsLogger } from "./logger";
-import clientPromise from "@/lib/db/mongodb";
+import dbConnect from "@/lib/db/dbConnect";
+import { Logger, LogContext, LogLevel, AnalyticsLogger } from "./logger";
+import { AuthLogModel } from "@/models/Logs"; // <-- Import new Mongoose model
 import { AuthEventType, AuthLog } from "@/models/AuthLog";
 import { getClientIp } from "@/lib/utils";
 
 /**
- * Log an authentication event to the database
+ * Log an authentication event to the database using Mongoose.
  */
 export async function logAuthEvent({
   request,
@@ -31,7 +31,8 @@ export async function logAuthEvent({
     const message = `Auth event: ${event}, status: ${status}${reason ? `, reason: ${reason}` : ''}`;
     const level = status === "success" ? LogLevel.INFO : LogLevel.WARNING;
 
-    const requestId = await Logger.log({
+    // The main logger can remain as is, as it will be refactored separately.
+    await Logger.log({
       context: LogContext.AUTH,
       level,
       message,
@@ -39,9 +40,7 @@ export async function logAuthEvent({
       request,
       metadata: { ...metadata, email, reason }
     });
-    console.log('requestId :>> ', requestId);
 
-    // Also track as analytics event if successful
     if (status === "success") {
       let eventType = "";
       switch (event) {
@@ -52,109 +51,77 @@ export async function logAuthEvent({
           eventType = AnalyticsLogger.EventType.USER_SIGNUP;
           break;
       }
-
       if (eventType) {
-        await AnalyticsLogger.trackEvent({
-          userId,
-          eventType,
-          properties: { email },
-          request
-        });
+        await AnalyticsLogger.trackEvent({ userId, eventType, properties: { email }, request });
       }
     }
 
-    const client = await clientPromise;
-    const db = client.db();
-    
-    // Get client information
-    const ipAddress = getClientIp(request);
-    const userAgent = request.headers.get("user-agent") || "unknown";
-    
-    // Create the log entry
-    const logEntry: AuthLog = {
+    await dbConnect(); // Ensure DB connection is established
+
+    const logEntry = {
       event,
       userId,
       email,
-      ipAddress,
-      userAgent,
+      ipAddress: getClientIp(request),
+      userAgent: request.headers.get("user-agent") || "unknown",
       status,
       reason,
       metadata,
       timestamp: new Date(),
     };
+
+    // Use the Mongoose model to create the new log document
+    const result = await AuthLogModel.create(logEntry);
     
-    // Insert into database
-    const result = await db.collection("auth_logs").insertOne(logEntry);
-    
-    return result.insertedId.toString();
+    return result._id.toString();
   } catch (error) {
-    // Fail gracefully - logging should not break the application
     console.error("Failed to log auth event:", error);
     return "logging-failed";
   }
 }
 
 /**
- * Check for suspicious activity patterns in recent logs
+ * Check for suspicious activity patterns using Mongoose.
  */
 export async function checkSuspiciousActivity(
   email: string,
   ipAddress: string
 ): Promise<{ suspicious: boolean; reason?: string }> {
   try {
-    const client = await clientPromise;
-    const db = client.db();
-    
-    // Look back 24 hours
+    await dbConnect(); // Ensure DB connection
+
     const lookbackTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
-    // Check for multiple failed login attempts
-    const failedLogins = await db.collection("auth_logs").countDocuments({
+
+    const failedLogins = await AuthLogModel.countDocuments({
       event: AuthEventType.LOGIN_FAILURE,
       email,
       timestamp: { $gte: lookbackTime },
     });
     
     if (failedLogins >= 5) {
-      return {
-        suspicious: true,
-        reason: `Multiple failed login attempts (${failedLogins}) in the last 24 hours`,
-      };
+      return { suspicious: true, reason: `Multiple failed login attempts (${failedLogins}) in the last 24 hours` };
     }
     
-    // Check for logins from different locations
-    const distinctIps = await db
-      .collection("auth_logs")
-      .distinct("ipAddress", {
+    const distinctIps = await AuthLogModel.distinct("ipAddress", {
         event: AuthEventType.LOGIN,
         email,
         status: "success",
         timestamp: { $gte: lookbackTime },
-      });
+    });
     
-    // If this IP is different and we have successful logins from other IPs
     if (distinctIps.length > 0 && !distinctIps.includes(ipAddress)) {
-      return {
-        suspicious: true,
-        reason: "Login attempt from a new location",
-      };
+      return { suspicious: true, reason: "Login attempt from a new location" };
     }
     
-    // Check for account creation and login across multiple accounts from same IP
     if (ipAddress) {
-      const accountsFromIp = await db
-        .collection("auth_logs")
-        .distinct("email", {
-          ipAddress,
-          event: AuthEventType.REGISTER,
-          timestamp: { $gte: lookbackTime },
-        });
+      const accountsFromIp = await AuthLogModel.distinct("email", {
+        ipAddress,
+        event: AuthEventType.REGISTER,
+        timestamp: { $gte: lookbackTime },
+      });
       
       if (accountsFromIp.length >= 3) {
-        return {
-          suspicious: true,
-          reason: `Multiple accounts (${accountsFromIp.length}) created from the same IP address`,
-        };
+        return { suspicious: true, reason: `Multiple accounts (${accountsFromIp.length}) created from the same IP address` };
       }
     }
     
@@ -166,67 +133,15 @@ export async function checkSuspiciousActivity(
 }
 
 /**
- * Get authentication logs for a specific user
+ * Get authentication logs for a specific user using Mongoose.
  */
 export async function getUserAuthLogs(userId: string, limit: number = 20): Promise<AuthLog[]> {
   try {
-    const client = await clientPromise;
-    const db = client.db();
-    
-    const logs = await db
-      .collection("auth_logs")
-      .find({ userId })
-      .sort({ timestamp: -1 })
-      .limit(limit)
-      .toArray();
-    
+    await dbConnect();
+    const logs = await AuthLogModel.find({ userId }).sort({ timestamp: -1 }).limit(limit).lean();
     return logs as AuthLog[];
   } catch (error) {
     console.error("Failed to get user auth logs:", error);
-    return [];
-  }
-}
-
-/**
- * Get recent failed login attempts
- */
-export async function getRecentFailedLogins(limit: number = 20): Promise<AuthLog[]> {
-  try {
-    const client = await clientPromise;
-    const db = client.db();
-    
-    const logs = await db
-      .collection("auth_logs")
-      .find({ event: AuthEventType.LOGIN_FAILURE })
-      .sort({ timestamp: -1 })
-      .limit(limit)
-      .toArray();
-    
-    return logs as AuthLog[];
-  } catch (error) {
-    console.error("Failed to get recent failed logins:", error);
-    return [];
-  }
-}
-
-/**
- * Get suspicious activity logs
- */
-export async function getSuspiciousActivityLogs(limit: number = 20): Promise<AuthLog[]> {
-  try {
-    const client = await clientPromise;
-    const db = client.db();
-    
-    const logs = await db
-      .collection("auth_logs")
-      .find({ event: AuthEventType.SUSPICIOUS_ACTIVITY })
-      .sort({ timestamp: -1 })
-      .limit(limit)
-      .toArray();
-    
-    return logs as AuthLog[];
-  } catch (error) {
-    console.error("Failed to get suspicious activity logs:", error);
     return [];
   }
 }

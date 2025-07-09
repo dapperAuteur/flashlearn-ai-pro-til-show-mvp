@@ -2,7 +2,7 @@
 // src/app/api/stripe/webhook/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import dbConnect from "@/lib/dbConnect";
+import dbConnect from "@/lib/db/dbConnect";
 import User from "@/models/User"; // Using the User model from your schema
 import { logStripeEvent } from "@/lib/logging/stripe-logger";
 import { LogLevel } from "@/lib/logging/logger";

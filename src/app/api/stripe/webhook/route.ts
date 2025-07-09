@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import dbConnect from '@/lib/dbConnect';
+import dbConnect from '@/lib/db/dbConnect';
 import User from '@/models/User';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {

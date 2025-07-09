@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/lib/logging/stripe-logger.ts
 import { NextRequest } from "next/server";
-import { Logger, LogContext, LogLevel } from "./logger";
-import { AnalyticsLogger } from "./logger";
-import clientPromise from "@/lib/db/mongodb";
-import { StripeLog } from "@/models/StripeLog"; // We will need to create this model interface
+import dbConnect from "@/lib/db/dbConnect"; // <-- Use Mongoose connection
+import { Logger, LogContext, LogLevel, AnalyticsLogger } from "./logger";
+import { StripeLogModel } from "@/models/Logs"; // <-- Import new Mongoose model
 
 /**
- * Logs a Stripe-related event to the database and console.
+ * Logs a Stripe-related event to the database and console using Mongoose.
  * @param {object} params - The parameters for logging.
  * @param {string} params.level - The severity level of the log.
  * @param {string} params.message - The log message.
@@ -39,11 +38,9 @@ export async function logStripeEvent({
       metadata,
     });
 
-    // Persist to a dedicated Stripe log collection in the database
-    const client = await clientPromise;
-    const db = client.db();
+    await dbConnect(); // Ensure DB connection
 
-    const logEntry: StripeLog = {
+    const logEntry = {
       level,
       message,
       userId,
@@ -52,13 +49,15 @@ export async function logStripeEvent({
       requestId,
     };
 
-    await db.collection("stripe_logs").insertOne(logEntry);
+    // Use the Mongoose model to create the new log document
+    await StripeLogModel.create(logEntry);
 
     // If it's a successful payment, track it as an analytics event
     if (metadata.eventType === "checkout.session.completed" && level === LogLevel.INFO) {
       await AnalyticsLogger.trackEvent({
         userId,
-        eventType: "user_subscription_created", // A new, specific analytics event
+        // This event type is not in the original logger, but we keep it for Stripe specificity
+        eventType: "user_subscription_created", 
         properties: {
           stripeCustomerId: metadata.stripeCustomerId,
           plan: metadata.plan,
