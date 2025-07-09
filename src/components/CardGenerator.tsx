@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession, signIn } from 'next-auth/react'; // <-- Import useSession and signIn
 import StudySession from './StudySession';
 import Leaderboard from './Leaderboard';
@@ -29,7 +30,7 @@ export default function CardGenerator() {
   const [view, setView] = useState<View>('generator');
   const [showUsernameModal, setShowUsernameModal] = useState(false);
 
-  const refreshSets = async () => {
+  const refreshSets = useCallback(async () => {
     // No need to fetch if the user isn't logged in.
     if (!isAuthenticated) {
         setSets([]);
@@ -47,7 +48,7 @@ export default function CardGenerator() {
       console.error("Failed to fetch sets", e);
       setSets([]);
     }
-  };
+  }, [isAuthenticated]);
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +62,7 @@ export default function CardGenerator() {
     if (isAuthenticated) {
         refreshSets();
     }
-  }, [status, isAuthenticated]);
+  }, [status, isAuthenticated, refreshSets]);
 
   const handleShare = async (set: FlashcardSet) => {
     const shareUrl = createShareLink(set);

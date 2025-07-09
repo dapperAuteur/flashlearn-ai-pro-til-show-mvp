@@ -1,18 +1,23 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useSearchParams } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import StudySession from '@/components/StudySession';
 import Link from 'next/link';
-import { FlashcardSet } from '@/utils/db';
+import { FlashcardSet, Flashcard } from '@/types/index';
 
 // Helper function to decode data from the URL
-const decodeDataFromURL = (encodedData: string | null): any => {
+const decodeDataFromURL = (encodedData: string | null): Flashcard[] | null => {
   if (!encodedData) return null;
   try {
     const jsonString = atob(encodedData); // atob is a browser function for Base64 decoding
-    return JSON.parse(jsonString);
+    const data = JSON.parse(jsonString);
+    // Basic validation to ensure the data is in the expected format
+    if (Array.isArray(data) && data.every(item => typeof item.question === 'string' && typeof item.answer === 'string')) {
+      return data;
+    }
+    console.error("Decoded data is not in the expected card array format.");
+    return null;
   } catch (error) {
     console.error("Failed to decode or parse data:", error);
     return null;
@@ -34,9 +39,12 @@ export default function ChallengePage() {
   if (startChallenge && cardData) {
     // We need to create a temporary FlashcardSet object to pass to the StudySession component
     const challengeSet: FlashcardSet = {
-      id: 0, // A dummy ID
+      _id: '0', // A dummy ID
+      owner: '', // A dummy owner
+      isPublic: false, // A dummy flag
       topic: topic || 'Challenge Set',
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       cards: cardData,
     };
     return <StudySession set={challengeSet} onEndSession={() => setStartChallenge(false)} />;

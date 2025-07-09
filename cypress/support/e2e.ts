@@ -1,3 +1,17 @@
+/* eslint-disable @typescript-eslint/no-namespace */
+/// <reference types="cypress" />
+
+declare global {
+  namespace Cypress {
+    interface Chainable {
+      /**
+       * Custom command to log in by mocking the session.
+       * @example cy.login({ name: 'Jane Doe' })
+       */
+      login(user?: { id?: string; email?: string; name?: string; }): Chainable<void>;
+    }
+  }
+}
 // ***********************************************************
 // This example support/e2e.ts is processed and
 // loaded automatically before your test files.
@@ -18,7 +32,7 @@ import './commands'
 
 // cypress/support/e2e.ts
 
-Cypress.Commands.add('login', (user = {}) => {
+Cypress.Commands.add('login', (user: { id?: string; email?: string; name?: string; } = {}) => {
   // This command mocks a login request.
   // In a real app, you might make a POST request to your /api/auth/login endpoint
   // and then set the session cookie or token in the browser.
@@ -37,3 +51,6 @@ Cypress.Commands.add('login', (user = {}) => {
     }));
   });
 });
+
+// This ensures the file is treated as a module, allowing `declare global`.
+export {};

@@ -39,8 +39,12 @@ export interface Flashcard {
 
 export interface FlashcardSet {
   id: number;
+  _id: string;
+  owner: string;
   topic: string;
+  isPublic: boolean;
   createdAt: Date;
+  updatedAt: Date;
   cards: Flashcard[];
 }
 

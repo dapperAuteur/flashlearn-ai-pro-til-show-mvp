@@ -10,7 +10,7 @@ export interface AuthLog {
   userAgent: string;    // Browser/device info
   status: "success" | "failure"; // Outcome of the event
   reason?: string;      // Reason for failure (if applicable)
-  metadata?: Record<string, any>; // Additional context
+  metadata?: Record<string, unknown>; // Additional context
   timestamp: Date;      // When the event occurred
 }
 
