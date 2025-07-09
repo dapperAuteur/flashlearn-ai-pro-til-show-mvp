@@ -14,11 +14,6 @@ export default function SettingsPage() {
   const [user, setUser] = useState<any>(null);
   const [name, setName] = useState('');
   const [zipCode, setZipCode] = useState('');
-  // const [email, setEmail] = useState('');
-  // const [password, setPassword] = useState('');
-  // const [confirmPassword, setConfirmPassword] = useState('');
-  // const [showPassword, setShowPassword] = useState(false);
-  // const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -26,7 +21,6 @@ export default function SettingsPage() {
         const response = await fetch('/api/user/me');
         if (response.ok) {
           const data = await response.json();
-          console.log('data :>> ', data);
           setUser(data.user);
           setName(data.user.name);
           setZipCode(data.user.zipCode);

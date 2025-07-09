@@ -6,7 +6,7 @@ import User from '@/models/User'; // Import the User model
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-04-10',
+  apiVersion: '2025-05-28.basil',
 });
 
 export async function POST(request: NextRequest) {
